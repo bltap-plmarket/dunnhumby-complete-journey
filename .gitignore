@@ -17,6 +17,10 @@ env/
 .vscode/
 .idea/
 
+# Power BI Desktop local files
+*.abf
+.pbi/localSettings.json
+
 # OS
 .DS_Store
 Thumbs.db
