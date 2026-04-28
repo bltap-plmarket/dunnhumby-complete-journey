@@ -2,7 +2,7 @@
 
 Analysis workspace for the dunnhumby "Complete Journey" retail dataset. Tracks 2,500 households over ~2 years of retail transactions, with demographics, marketing campaigns, coupons, and in-store promotional data.
 
-**Goal:** Answer the five Kaggle research questions about household spending trends, category shifts, demographic drivers, and direct-marketing effectiveness — delivered as a pre-modeled, Power BI-ready dataset.
+**Goal:** Answer the five Kaggle research questions about household spending trends, category shifts, demographic drivers, and direct-marketing effectiveness — delivered as a Power BI dashboard.
 
 ## Dataset
 
@@ -45,35 +45,28 @@ kaggle datasets download -d frtgnn/dunnhumby-the-complete-journey -p data/raw --
 
 ## Quick start
 
+### Step 1 — Build the Parquet files
+
 ```bash
-# 1. Install Python dependencies
+# Install Python dependencies
 pip install -r requirements.txt
 
-# 2. Build core Parquet tables (dims + facts)
-#    Reads: data/raw/  →  Writes: data/parquet_parking/
+# Build core dims + facts from raw CSVs (~15–30 s)
 python scripts/build_parquet.py
 
-# 3. Build metadata parquets + pre-computed analytical aggregates
-#    Reads: data/parquet_parking/  →  Writes: more files to data/parquet_parking/
+# Build metadata parquets + pre-computed aggregates (~2–5 min)
 python scripts/build_aux_parquet.py
 ```
 
-Both scripts are deterministic — re-running them is safe and produces identical output.
+See `scripts/README.md` for full details.
 
-See `scripts/README.md` for runtime details, full output inventory, and dependency order.
+### Step 2 — Open in Power BI
 
----
+1. Open **`dunnhumby-complete-journey.pbip`** in Power BI Desktop (version June 2023 or later).
+2. When prompted, update the data source path to your local `data/parquet_parking/` folder.
+3. **Refresh** the model — all relationships, measures, and the PLM theme are already wired.
 
-## Load into Power BI
-
-1. Open Power BI Desktop → **Get Data → Parquet** (or use the Folder connector).
-2. Load all `*.parquet` files from `data/parquet_parking/`.
-3. Wire relationships per `data/parquet_parking/README.md` (or `docs/SCHEMA.md` §9).
-4. Mark `dim_date` as the date table, key column: `AnchorDate`.
-5. Paste DAX measures from `data/parquet_parking/measures.dax`.
-6. Apply the theme from `data/parquet_parking/theme.json`.
-
-The storyboard (`data/parquet_parking/storyboard.json`) maps each research question to a dashboard page layout.
+> **Why `.pbip` instead of `.pbix`?** The PBIP format stores the report and semantic model as plain-text JSON/Parquet files, making the project version-control friendly. See `dunnhumby-complete-journey.SemanticModel/README.md` for what's already configured.
 
 ---
 
@@ -81,28 +74,55 @@ The storyboard (`data/parquet_parking/storyboard.json`) maps each research quest
 
 ```
 dunnhumby-complete-journey/
+│
+├── dunnhumby-complete-journey.pbip          # Power BI project entry point — open this
+├── dunnhumby-complete-journey.Report/       # Power BI report definition (PBIP format)
+│   ├── README.md                            # Report structure + current state
+│   ├── report.json                          # Page and visual definitions
+│   ├── definition.pbir                      # Report metadata
+│   └── StaticResources/SharedResources/
+│       └── BaseThemes/PLM-Complete-Journey.json  # PLM brand theme
+│
+├── dunnhumby-complete-journey.SemanticModel/ # Power BI semantic model (PBIP format)
+│   ├── README.md                            # Model structure, tables, relationships
+│   ├── model.bim                            # Full model definition (tables, measures, relationships)
+│   └── definition.pbism                     # Model metadata
+│
 ├── data/
-│   ├── raw/                         # CSVs from Kaggle (gitignored)
-│   ├── processed/                   # intermediate outputs (gitignored)
-│   └── parquet_parking/             # Power BI-ready Parquet files + model spec
-│       ├── README.md                # ingestion guide + full table inventory
-│       ├── _model.json              # canonical model spec (tables, columns, relationships, measures)
-│       ├── measures.dax             # all DAX measures, ready to paste into Power BI
-│       ├── storyboard.json          # page-by-page dashboard layout
-│       ├── theme.json               # Power BI theme (colors, fonts)
-│       ├── investigation_findings.md    # narrative findings with headline numbers
-│       ├── investigation_findings.json  # validation targets + KPI priors
-│       ├── dim_*.parquet            # dimension tables (date, household, product, store, campaign, coupon)
-│       ├── fact_*.parquet           # fact tables (transactions, causal, redemption, campaign received)
-│       ├── bridge_*.parquet         # M:N bridge tables (coupon ↔ product)
-│       ├── agg_*.parquet            # pre-computed analytical aggregates (pages 2, 4, 5)
-│       └── _*.parquet               # metadata parquets (_tables, _columns, _relationships, _measures, _hierarchies)
+│   ├── raw/                                 # CSVs from Kaggle (gitignored)
+│   ├── processed/                           # Intermediate outputs (gitignored)
+│   └── parquet_parking/                     # Power BI-ready Parquet files + model spec
+│       ├── README.md                        # Ingestion guide + full table inventory
+│       ├── _model.json                      # Canonical model spec (tables, columns, relationships, measures)
+│       ├── measures.dax                     # All DAX measures, ready to paste
+│       ├── storyboard.json                  # Page-by-page dashboard layout
+│       ├── theme.json                       # Power BI theme (PLM brand colors, fonts)
+│       ├── investigation_findings.md        # Narrative findings with headline numbers
+│       ├── investigation_findings.json      # Validation targets + KPI priors
+│       ├── dim_*.parquet                    # Dimension tables
+│       ├── fact_*.parquet                   # Fact tables
+│       ├── bridge_*.parquet                 # M:N bridge tables
+│       ├── agg_*.parquet                    # Pre-computed analytical aggregates
+│       └── _*.parquet                       # Metadata parquets (_tables, _columns, etc.)
+│
+├── annotation/                              # Annotated explainer video project
+│   ├── README.md                            # Overview + execution instructions
+│   ├── PICKUP-PROMPT.md                     # Paste into a new session to resume
+│   ├── spec.md                              # Approved feature spec + user stories
+│   ├── plan.md                              # Technical approach + slide design
+│   ├── tasks.md                             # 19 atomic tasks across 7 phases
+│   └── traceability.yaml                    # FR-001–FR-008 mapped to tasks
+│
 ├── docs/
-│   └── SCHEMA.md                    # full schema reference, data quality notes, Power BI build plan
+│   └── SCHEMA.md                            # Full schema reference + Power BI build plan
+│
 ├── scripts/
-│   ├── README.md                    # ETL pipeline documentation
-│   ├── build_parquet.py             # builds dims + facts from raw CSVs (~15–30 s)
-│   └── build_aux_parquet.py         # builds metadata parquets + analytical aggregates (~2–5 min)
+│   ├── README.md                            # ETL pipeline documentation
+│   ├── build_parquet.py                     # Builds dims + facts from raw CSVs
+│   └── build_aux_parquet.py                 # Builds metadata parquets + aggregates
+│
+├── .planning/                               # Internal planning specs (dream-studio)
+├── .sessions/                               # Session handoff and recap notes
 ├── requirements.txt
 └── README.md
 ```
@@ -113,15 +133,17 @@ dunnhumby-complete-journey/
 
 | Document | What it covers |
 |---|---|
-| `docs/SCHEMA.md` | Full per-table column reference, data quality quirks, constellation schema diagram, Power BI build plan (Dim_Date, Fact_Causal pre-agg, Dim_Household), DAX patterns, research question mapping |
-| `data/parquet_parking/README.md` | Parquet file inventory, relationships to wire in Power BI, ETL decisions baked into each table |
-| `scripts/README.md` | How to run the ETL scripts, what each produces, runtime estimates, dependency order |
+| `dunnhumby-complete-journey.SemanticModel/README.md` | Semantic model structure — tables loaded, all relationships, measures, data source config |
+| `dunnhumby-complete-journey.Report/README.md` | Report structure — current page state, theme applied, storyboard reference |
+| `docs/SCHEMA.md` | Full per-table column reference, data quality quirks, constellation schema diagram, Power BI build plan, DAX patterns, research question mapping |
+| `data/parquet_parking/README.md` | Parquet file inventory, ETL decisions baked into each table |
+| `scripts/README.md` | How to run the ETL scripts, what each produces, runtime estimates |
+| `annotation/README.md` | Annotated video plan — executive and analyst explainer for the dashboard |
 
 ---
 
 ## Prerequisites
 
-- **Python 3.9+**
-- **Packages:** `pandas >= 2.0`, `pyarrow >= 14.0` (see `requirements.txt`)
-- **Power BI Desktop** for the report layer
+- **Python 3.9+** with `pandas >= 2.0` and `pyarrow >= 14.0` (see `requirements.txt`)
+- **Power BI Desktop** June 2023 or later (PBIP format support required)
 - **Disk space:** ~700 MB for raw CSVs; ~50 MB for Parquet outputs
