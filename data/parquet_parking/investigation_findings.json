@@ -1,0 +1,207 @@
+{
+  "$comment": "Investigation findings from raw-data profiling and the post-ETL parquet output. A Power BI build skill should treat this as: (a) validation targets to verify after loading, (b) headline KPIs to feature on cards, (c) priors for top-N visuals. Generated 2026-04-28.",
+  "generatedOn": "2026-04-28",
+  "source": "scripts/build_parquet.py output",
+
+  "validationTargets": {
+    "$comment": "If a row count or distinct count doesn't match these after loading, something went wrong with the ingestion.",
+    "tables": {
+      "fact_transactions":      {"rowCount": 2595732,  "distincts": {"household_key": 2500, "PRODUCT_ID": 92339, "STORE_ID": 582, "BASKET_ID": 276484, "DAY": 711, "WEEK_NO": 102}},
+      "fact_causal_weekly":     {"rowCount": 2049187,  "$comment": "Pre-aggregated from 36,786,524 source rows (18x compression)."},
+      "fact_coupon_redemption": {"rowCount": 2318,     "distincts": {"household_key": 434, "COUPON_UPC": 556, "CAMPAIGN": 30}},
+      "fact_campaign_received": {"rowCount": 7208,     "distincts": {"household_key": 1584, "CAMPAIGN": 30}},
+      "dim_household":          {"rowCount": 2500,     "primaryKeyUnique": true},
+      "dim_product":            {"rowCount": 92353,    "primaryKeyUnique": true},
+      "dim_store":              {"rowCount": 582,      "primaryKeyUnique": true},
+      "dim_date":               {"rowCount": 711,      "primaryKeyUnique": true},
+      "dim_campaign":           {"rowCount": 30,       "primaryKeyUnique": true},
+      "dim_coupon":             {"rowCount": 1135,     "primaryKeyUnique": true},
+      "bridge_coupon_product":  {"rowCount": 119384}
+    },
+    "ranges": {
+      "DAY":         {"min": 1,    "max": 711},
+      "WEEK_NO":     {"min": 1,    "max": 102},
+      "SALES_VALUE": {"min": 0.0,  "max": 840.0},
+      "QUANTITY":    {"min": 0,    "max": 89638, "$comment": "Extreme outlier — bulk/weighted item. Cap at p99 for visuals."},
+      "TRANS_HOUR":  {"min": 0,    "max": 23}
+    }
+  },
+
+  "headlineKpis": {
+    "$comment": "These are the numbers a viewer should see first when the dashboard opens. Use them to anchor card visuals.",
+    "totals": {
+      "totalSales":            8057463,
+      "grossSales":            9506002,
+      "discountRate":          0.152,
+      "totalUnits":            null,
+      "totalBaskets":          276484,
+      "activeHouseholds":      2500,
+      "avgBasketValue":        29.14,
+      "spendPerHousehold":     3222.99
+    },
+    "yoy": {
+      "salesY1":               null,
+      "salesY2":               null,
+      "yoyGrowthOverallPct":   null,
+      "$comment": "Aggregate YoY left null intentionally — the story is in the per-household trend distribution below, not the headline number."
+    }
+  },
+
+  "householdTrendDistribution": {
+    "$comment": "From dim_household.HH_Trend. The central narrative: more households grew than declined.",
+    "Growing":   {"count": 1459, "shareOfTotal": 0.5836, "avgSpendY1": 1345, "avgSpendY2": 2227},
+    "Declining": {"count": 891,  "shareOfTotal": 0.3564, "avgSpendY1": 1591, "avgSpendY2": 1008},
+    "Flat":      {"count": 126,  "shareOfTotal": 0.0504, "avgSpendY1": 2067, "avgSpendY2": 2083},
+    "Lost":      {"count": 21,   "shareOfTotal": 0.0084, "avgSpendY1": 251,  "avgSpendY2": 0},
+    "New":       {"count": 3,    "shareOfTotal": 0.0012, "avgSpendY1": 0,    "avgSpendY2": 465},
+    "Inactive":  {"count": 0,    "shareOfTotal": 0.0}
+  },
+
+  "marketingExposure": {
+    "householdsTotal":              2500,
+    "householdsReceivedAnyCampaign": 1584,
+    "householdsRedeemedAnyCoupon":   434,
+    "campaignReachShare":            0.6336,
+    "redemptionFunnelShare":         0.2740,
+    "$comment": "Of households that received campaigns, 27.4% redeemed at least one coupon.",
+    "exposedVsUnexposedAvgSpend": {
+      "exposed":   {"n": 1584, "avgSpendY1": 2050, "avgSpendY2": 2442, "avgSpendTotal": 4492},
+      "unexposed": {"n": 916,  "avgSpendY1": 435,  "avgSpendY2": 594,  "avgSpendTotal": 1029},
+      "rawRatio": 4.37,
+      "$caveat": "Exposed cohort spends 4.37x more — this is heavily confounded with selection bias, NOT a clean causal lift. Campaigns are targeted at active customers. The dashboard's marketing-impact page MUST surface this caveat or it will mislead."
+    },
+    "honestDiffInDiffLift": {
+      "$comment": "The proper answer to Q5. Computed in agg_household_campaign_lift.parquet. Pre-window = 28 days before campaign START_DAY; post-window = 28 days from START_DAY. Restricted to campaigns with a complete post-window in the observation period.",
+      "exposed":   {"avgPreSpend": 267, "avgPostSpend": 268, "avgDelta": 2},
+      "unexposed": {"avgPreSpend": 127, "avgPostSpend": 128, "avgDelta": 1},
+      "diffInDiffPerHouseholdDollars": 0.33,
+      "$takeaway": "Direct marketing produced essentially zero short-term spend lift. Lead the marketing page with this number, not the 4.37x ratio."
+    }
+  },
+
+  "demographicCoverage": {
+    "totalHouseholds":         2500,
+    "householdsWithDemographics": 801,
+    "demographicCoverageShare":   0.3204,
+    "$comment": "Apply HasDemographics = TRUE filter on every demographic visual."
+  },
+
+  "demographicDistributions": {
+    "$comment": "Counts within the 801 surveyed households.",
+    "AGE_DESC":            {"45-54": 288, "35-44": 194, "25-34": 142, "65+": 72, "55-64": 59, "19-24": 46},
+    "MARITAL_STATUS_CODE": {"U": 344, "A": 340, "B": 117, "$note": "A typically married/partnered, B single, U unknown — confirm with project owner."},
+    "INCOME_DESC":         {"50-74K": 192, "35-49K": 172, "75-99K": 96, "25-34K": 77, "15-24K": 74, "Under 15K": 61, "125-149K": 38, "100-124K": 34, "150-174K": 30, "175-199K": 11, "250K+": 11, "200-249K": 5},
+    "HOMEOWNER_DESC":      {"Homeowner": 504, "Unknown": 233, "Renter": 42, "Probable Renter": 11, "Probable Owner": 11},
+    "HH_COMP_DESC":        {"2 Adults No Kids": 255, "2 Adults Kids": 187, "Single Female": 144, "Single Male": 95, "Unknown": 73, "1 Adult Kids": 47},
+    "HOUSEHOLD_SIZE_DESC": {"2": 318, "1": 255, "3": 109, "5+": 66, "4": 53},
+    "KID_CATEGORY_DESC":   {"None/Unknown": 558, "1": 114, "3+": 69, "2": 60}
+  },
+
+  "spendByIncome": {
+    "$comment": "Avg total spend per surveyed household by income bracket. Notice the dip at 200-249K (n=5) — too small to feature.",
+    "Under 15K":  {"n": 61,  "avgSpend": 5560},
+    "15-24K":     {"n": 74,  "avgSpend": 4097},
+    "25-34K":     {"n": 77,  "avgSpend": 4938},
+    "35-49K":     {"n": 172, "avgSpend": 4802},
+    "50-74K":     {"n": 192, "avgSpend": 5702},
+    "75-99K":     {"n": 96,  "avgSpend": 5823},
+    "100-124K":   {"n": 34,  "avgSpend": 5928},
+    "125-149K":   {"n": 38,  "avgSpend": 7912},
+    "150-174K":   {"n": 30,  "avgSpend": 8395},
+    "175-199K":   {"n": 11,  "avgSpend": 8548},
+    "200-249K":   {"n": 5,   "avgSpend": 5726, "$caveat": "Sample too small (n=5) — flag or hide."},
+    "250K+":      {"n": 11,  "avgSpend": 10790}
+  },
+
+  "categoryConcentration": {
+    "topDepartmentsBySales": [
+      {"department": "GROCERY",         "totalSales": 4093814, "shareOfTotal": 0.508},
+      {"department": "DRUG GM",         "totalSales": 1055358, "shareOfTotal": 0.131},
+      {"department": "PRODUCE",         "totalSales": 557452,  "shareOfTotal": 0.069},
+      {"department": "MEAT",            "totalSales": 548787,  "shareOfTotal": 0.068},
+      {"department": "KIOSK-GAS",       "totalSales": 544222,  "shareOfTotal": 0.068},
+      {"department": "MEAT-PCKGD",      "totalSales": 412437,  "shareOfTotal": 0.051},
+      {"department": "DELI",            "totalSales": 260867,  "shareOfTotal": 0.032},
+      {"department": "PASTRY",          "totalSales": 121740,  "shareOfTotal": 0.015},
+      {"department": "MISC SALES TRAN", "totalSales": 119960,  "shareOfTotal": 0.015},
+      {"department": "NUTRITION",       "totalSales": 97669,   "shareOfTotal": 0.012}
+    ],
+    "topCommoditiesBySales": [
+      {"commodity": "COUPON/MISC ITEMS",         "totalSales": 639879, "$flag": "Investigate — sounds non-merchandise. May represent coupon redemption ledger entries."},
+      {"commodity": "SOFT DRINKS",               "totalSales": 327647},
+      {"commodity": "BEEF",                      "totalSales": 312103},
+      {"commodity": "FLUID MILK PRODUCTS",       "totalSales": 205356},
+      {"commodity": "CHEESE",                    "totalSales": 189528},
+      {"commodity": "FRZN MEAT/MEAT DINNERS",    "totalSales": 160517},
+      {"commodity": "BAG SNACKS",                "totalSales": 148375},
+      {"commodity": "BEERS/ALES",                "totalSales": 147344},
+      {"commodity": "FROZEN PIZZA",              "totalSales": 146037},
+      {"commodity": "BAKED BREAD/BUNS/ROLLS",    "totalSales": 145931}
+    ]
+  },
+
+  "categoryWinnersLosers": {
+    "$comment": "Pre-computed for the storyboard's 'Winners & Losers' page. Filter min Y1 spend $5K to suppress noise. Notice that the same commodities appear at the top of BOTH lists — the same big-volume categories grew for Growing HH and shrank for Declining HH. The story isn't 'category X is dying' — it's 'engaged vs disengaged households diverge across high-volume staples'.",
+    "topGrowingForGrowingCohort": [
+      {"commodity": "COUPON/MISC ITEMS",   "y1": 146364, "y2": 282172, "deltaDollars": 135808, "deltaPct": 0.928},
+      {"commodity": "BEEF",                "y1": 77596,  "y2": 122724, "deltaDollars": 45128,  "deltaPct": 0.582},
+      {"commodity": "SOFT DRINKS",         "y1": 80252,  "y2": 121835, "deltaDollars": 41583,  "deltaPct": 0.518},
+      {"commodity": "FLUID MILK PRODUCTS", "y1": 51244,  "y2": 83445,  "deltaDollars": 32201,  "deltaPct": 0.628},
+      {"commodity": "CHEESE",              "y1": 47674,  "y2": 75136,  "deltaDollars": 27461,  "deltaPct": 0.576}
+    ],
+    "topDecliningForDecliningCohort": [
+      {"commodity": "COUPON/MISC ITEMS",   "y1": 96669, "y2": 62610, "deltaDollars": -34059},
+      {"commodity": "SOFT DRINKS",         "y1": 65384, "y2": 39117, "deltaDollars": -26267},
+      {"commodity": "BEEF",                "y1": 56147, "y2": 34648, "deltaDollars": -21499},
+      {"commodity": "CHEESE",              "y1": 33577, "y2": 20233, "deltaDollars": -13345},
+      {"commodity": "FLUID MILK PRODUCTS", "y1": 35515, "y2": 22729, "deltaDollars": -12787}
+    ]
+  },
+
+  "campaignPortfolio": {
+    "campaignsTotal": 30,
+    "byType": {"TypeB": 19, "TypeC": 6, "TypeA": 5},
+    "earliestStartDay": 224,
+    "latestEndDay":     719,
+    "campaignsExtendingPastObservation": 1,
+    "extendingCampaignIds": [24],
+    "$comment": "Campaign 24 ends DAY 719 but transactions stop at DAY 711. Filter Extends_Past_Observation = false on lift analyses."
+  },
+
+  "promotionFootprint": {
+    "uniqueProductWeekCombos":      2049187,
+    "displayCodeValues":            ["0", "1", "2", "3", "4", "5", "6", "7", "9", "A"],
+    "mailerCodeValues":             ["0", "A", "C", "D", "F", "H", "J", "L", "P", "X", "Z"],
+    "$comment": "Display and mailer values are nominal codes — never sum or average. The OnDisplay_AnyStore / InMailer_AnyStore booleans collapse them into a usable signal."
+  },
+
+  "productCatalog": {
+    "totalProducts":             92353,
+    "departments":               44,
+    "commodities":               308,
+    "subCommodities":            2383,
+    "manufacturers":             6476,
+    "brandsBreakdown":           {"National": 78537, "Private": 13816},
+    "privateBrandShareOfSku":    0.150
+  },
+
+  "knownDataQualityIssues": [
+    {"issue": "Discounts stored as negatives in source", "fix": "ABS() applied in ETL; columns now positive in fact_transactions."},
+    {"issue": "QUANTITY has extreme outliers (max 89,638)", "recommendation": "Cap at p99 or use median for chart axes."},
+    {"issue": "32% demographic coverage", "recommendation": "Always filter HasDemographics = TRUE on demographic visuals."},
+    {"issue": "Campaign 24 extends past observation window", "recommendation": "Filter Extends_Past_Observation = FALSE on lift visuals."},
+    {"issue": "Placeholder commodity descriptions ('NO COMMODITY DESCRIPTION')", "fix": "Has_Real_Category = FALSE in dim_product; filter on category visuals."},
+    {"issue": "TypeA/C campaign samples are small (5/6)", "recommendation": "Don't average-by-type without showing N."},
+    {"issue": "Marketing exposed/unexposed cohorts have 4.37x raw spend ratio", "recommendation": "Likely selection bias — show as a caveat, not as 'lift'. A pre/post within-household design is more honest."},
+    {"issue": "'COUPON/MISC ITEMS' is the #1 commodity by sales", "recommendation": "May not be a true product category. Consider excluding from category analyses or labelling distinctly."},
+    {"issue": "200-249K income bracket has only 5 households", "recommendation": "Hide or footnote in income visuals."}
+  ],
+
+  "narrativeRecommendations": [
+    "Lead Page 1 with the 1,459 vs 891 (Growing vs Declining) split — this is the headline.",
+    "On Page 2, treat 'top categories' as relative to the cohort (Growing vs Declining), not absolute. The same commodities appear in both lists — that's the actual insight.",
+    "On Page 3, only show income/age/composition with HasDemographics filter applied; hide demographic visuals when filter is removed.",
+    "On Page 4, show the exposed/unexposed comparison BUT visually warn about selection bias. Lead with the funnel (received → redeemed = 27%) rather than the spend ratio.",
+    "Reserve real-estate at the top of every page for a 'context band' showing: Active Households | HasDemographics filter state | Year filter state. The user needs to know what slice they're looking at."
+  ]
+}

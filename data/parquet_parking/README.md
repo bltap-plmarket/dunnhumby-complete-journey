@@ -18,6 +18,33 @@ script anytime the raw data refreshes.
 | `measures.dax` | All DAX measures as a single ready-to-paste file. |
 | `storyboard.json` | Page-by-page dashboard layout: KPIs, visuals, fields, filters. One page per Kaggle research question. |
 | `theme.json` | Power BI theme JSON (palette, fonts, good/bad colors). |
+| `investigation_findings.json` | Validation targets, headline KPIs, distributions, top-N priors — what the data should look like after loading. |
+| `investigation_findings.md` | Narrative companion: the story the data tells, with numbers. |
+
+## Metadata as parquet (mirrors `_model.json` for skills that prefer parquet)
+
+| File | Rows | Purpose |
+|---|---:|---|
+| `_tables.parquet` | 11 | Per-table metadata (kind, grain, primary key, row count). |
+| `_columns.parquet` | 91 | Per-column metadata (table, name, type, description). |
+| `_relationships.parquet` | 14 | Relationship list (from/to table+column, cardinality, cross-filter). |
+| `_measures.parquet` | 23 | All DAX measures (name, host table, expression, format, category). |
+| `_hierarchies.parquet` | 8 | Hierarchy levels (table, hierarchy, level order, column). |
+
+## Pre-computed analytical aggregates (one per heavy visual)
+
+| File | Rows | Powers |
+|---|---:|---|
+| `agg_commodity_cohort_yoy.parquet` | 1,326 | Page 2 — commodity × department × HH_Trend × Y1/Y2 sales matrix and top-N winners/losers. |
+| `agg_dept_yoy_by_cohort.parquet` | 146 | Page 2 — department-level Y1/Y2 by HH_Trend (lighter than commodity grain). |
+| `agg_household_campaign_lift.parquet` | 75,000 | Page 4 — per-(household, campaign) pre/post 28-day spend windows. **Enables honest diff-in-diff lift** instead of the confounded raw ratio. |
+| `agg_promo_sales_weekly.parquet` | 1,076,830 | Page 5 — (PRODUCT_ID, WEEK_NO) sales joined to display/mailer state. |
+
+### Why these aggregates exist
+
+- **Page 2** matrix is commodity × cohort × year. Computing this in DAX per visual is fine but slow — pre-aggregating gives instant load.
+- **Page 4** marketing lift: the proper diff-in-diff answer is *not obvious* in DAX (requires per-campaign window logic). `agg_household_campaign_lift.parquet` does it right and exposes the result so the visual is just a bar chart. **Headline finding: diff-in-diff is +$0.33 per household per 28-day window** — the raw 4.4× exposed/unexposed ratio is essentially all selection bias.
+- **Page 5** promo effects: joining 2.6M transaction rows to 2M causal rows in DAX is heavy. Pre-merged file ships ready.
 
 ## Files in this folder
 
