@@ -1,0 +1,254 @@
+{
+  "$comment": "Machine-readable Power BI model spec. A dashboard-build skill should parse this to create tables, types, relationships, hierarchies, and measures programmatically. Pairs with the parquet files in this folder.",
+  "name": "dunnhumby-complete-journey",
+  "version": "1.0.0",
+  "dateTable": "dim_date",
+  "dateTableKey": "AnchorDate",
+
+  "tables": [
+    {
+      "name": "dim_date",
+      "source": "dim_date.parquet",
+      "kind": "dimension",
+      "primaryKey": "Day_Idx",
+      "markAsDateTable": "AnchorDate",
+      "hierarchies": [
+        {"name": "Calendar", "levels": ["Year_Idx", "Quarter_Idx", "Month_Idx", "Week_No", "Day_Idx"]}
+      ],
+      "columns": [
+        {"name": "Day_Idx",     "type": "Int64",    "description": "Day index 1..711; join key into facts."},
+        {"name": "Week_No",     "type": "Int64",    "description": "Week index 1..102."},
+        {"name": "Year_Idx",    "type": "Int64",    "description": "Year 1 (DAY 1..365) or 2 (DAY 366..711)."},
+        {"name": "Half_Idx",    "type": "Int64",    "description": "Half-year 1..4."},
+        {"name": "Quarter_Idx", "type": "Int64",    "description": "Quarter 1..8."},
+        {"name": "Month_Idx",   "type": "Int64",    "description": "Synthetic month 1..24."},
+        {"name": "DayOfWeek",   "type": "Int64",    "description": "1..7 derived from Day_Idx."},
+        {"name": "AnchorDate",  "type": "DateTime", "description": "DAY 1 anchored to 2020-01-01 for slicer cosmetics; not a real source date."},
+        {"name": "YearMonth",   "type": "String"},
+        {"name": "YearLabel",   "type": "String",   "description": "'Y1' or 'Y2'."},
+        {"name": "WeekLabel",   "type": "String",   "description": "'W001'..'W102'."}
+      ]
+    },
+    {
+      "name": "dim_household",
+      "source": "dim_household.parquet",
+      "kind": "dimension",
+      "primaryKey": "household_key",
+      "isStorytellingTable": true,
+      "$comment": "Central slicer table for the dashboard. HH_Trend, Spend_Y1/Y2, demographic flags, and marketing-exposure flags are pre-baked.",
+      "columns": [
+        {"name": "household_key",        "type": "Int64",   "description": "PK."},
+        {"name": "AGE_DESC",             "type": "String",  "description": "Age bucket; '(not surveyed)' for 1,699 of 2,500 households."},
+        {"name": "MARITAL_STATUS_CODE",  "type": "String"},
+        {"name": "INCOME_DESC",          "type": "String",  "description": "12 brackets from 'Under 15K' to '250K+'."},
+        {"name": "HOMEOWNER_DESC",       "type": "String"},
+        {"name": "HH_COMP_DESC",         "type": "String",  "description": "Household composition (Single, 2 Adults Kids, etc.)."},
+        {"name": "HOUSEHOLD_SIZE_DESC",  "type": "String"},
+        {"name": "KID_CATEGORY_DESC",    "type": "String"},
+        {"name": "HasDemographics",      "type": "Boolean", "description": "True for the 801 surveyed households. Use as default filter on demographic visuals."},
+        {"name": "ReceivedAnyCampaign",  "type": "Boolean", "description": "True for 1,584 households."},
+        {"name": "Campaign_Count",       "type": "Int64"},
+        {"name": "RedeemedAnyCoupon",    "type": "Boolean", "description": "True for 434 households."},
+        {"name": "Redemption_Count",     "type": "Int64"},
+        {"name": "Spend_Y1",             "type": "Decimal"},
+        {"name": "Spend_Y2",             "type": "Decimal"},
+        {"name": "Spend_Total",          "type": "Decimal"},
+        {"name": "Spend_Delta",          "type": "Decimal"},
+        {"name": "Spend_Delta_Pct",      "type": "Decimal", "description": "Null when Spend_Y1 = 0."},
+        {"name": "HH_Trend",             "type": "String",  "description": "Growing | Declining | Flat | New | Lost | Inactive. PRIMARY DASHBOARD SLICER."},
+        {"name": "Basket_Count",         "type": "Int64"},
+        {"name": "Avg_Basket_Value",     "type": "Decimal"},
+        {"name": "First_Day",            "type": "Int64"},
+        {"name": "Last_Day",             "type": "Int64"},
+        {"name": "Active_Days",          "type": "Int64"}
+      ]
+    },
+    {
+      "name": "dim_product",
+      "source": "dim_product.parquet",
+      "kind": "dimension",
+      "primaryKey": "PRODUCT_ID",
+      "hierarchies": [
+        {"name": "Category", "levels": ["DEPARTMENT", "COMMODITY_DESC", "SUB_COMMODITY_DESC"]}
+      ],
+      "columns": [
+        {"name": "PRODUCT_ID",           "type": "Int64"},
+        {"name": "MANUFACTURER",         "type": "Int64"},
+        {"name": "DEPARTMENT",           "type": "String"},
+        {"name": "BRAND",                "type": "String", "description": "'National' or 'Private'."},
+        {"name": "COMMODITY_DESC",       "type": "String"},
+        {"name": "SUB_COMMODITY_DESC",   "type": "String"},
+        {"name": "CURR_SIZE_OF_PRODUCT", "type": "String"},
+        {"name": "Has_Real_Category",    "type": "Boolean", "description": "False for 'NO COMMODITY DESCRIPTION' placeholders. Apply as default filter on category analyses."},
+        {"name": "Is_Private_Brand",     "type": "Boolean"}
+      ]
+    },
+    {
+      "name": "dim_store",
+      "source": "dim_store.parquet",
+      "kind": "dimension",
+      "primaryKey": "STORE_ID",
+      "columns": [
+        {"name": "STORE_ID", "type": "Int64"}
+      ]
+    },
+    {
+      "name": "dim_campaign",
+      "source": "dim_campaign.parquet",
+      "kind": "dimension",
+      "primaryKey": "CAMPAIGN",
+      "columns": [
+        {"name": "CAMPAIGN",                  "type": "Int64"},
+        {"name": "CAMPAIGN_TYPE",             "type": "String", "description": "TypeA (5 campaigns), TypeB (19), TypeC (6)."},
+        {"name": "START_DAY",                 "type": "Int64"},
+        {"name": "END_DAY",                   "type": "Int64"},
+        {"name": "Duration_Days",             "type": "Int64"},
+        {"name": "Start_Week",                "type": "Int64"},
+        {"name": "End_Week",                  "type": "Int64"},
+        {"name": "Extends_Past_Observation",  "type": "Boolean", "description": "True for Campaign 24 only; filter out when computing post-campaign lift."}
+      ]
+    },
+    {
+      "name": "dim_coupon",
+      "source": "dim_coupon.parquet",
+      "kind": "dimension",
+      "primaryKey": "COUPON_UPC",
+      "columns": [
+        {"name": "COUPON_UPC",             "type": "Int64"},
+        {"name": "CAMPAIGN",               "type": "Int64"},
+        {"name": "Eligible_Product_Count", "type": "Int64"},
+        {"name": "Redemption_Count",       "type": "Int64"},
+        {"name": "Was_Redeemed",           "type": "Boolean"}
+      ]
+    },
+    {
+      "name": "bridge_coupon_product",
+      "source": "bridge_coupon_product.parquet",
+      "kind": "bridge",
+      "$comment": "Resolves M:N between dim_coupon and dim_product.",
+      "columns": [
+        {"name": "COUPON_UPC", "type": "Int64"},
+        {"name": "PRODUCT_ID", "type": "Int64"},
+        {"name": "CAMPAIGN",   "type": "Int64"}
+      ]
+    },
+    {
+      "name": "fact_transactions",
+      "source": "fact_transactions.parquet",
+      "kind": "fact",
+      "grain": "one row per product line per basket",
+      "rowCount": 2595732,
+      "columns": [
+        {"name": "household_key",     "type": "Int64"},
+        {"name": "BASKET_ID",         "type": "Int64", "description": "Degenerate dimension."},
+        {"name": "DAY",               "type": "Int64"},
+        {"name": "PRODUCT_ID",        "type": "Int64"},
+        {"name": "QUANTITY",          "type": "Int64"},
+        {"name": "SALES_VALUE",       "type": "Decimal", "description": "Net amount paid (already discount-adjusted)."},
+        {"name": "STORE_ID",          "type": "Int64"},
+        {"name": "RETAIL_DISC",       "type": "Decimal", "description": "Sign-corrected to positive."},
+        {"name": "TRANS_TIME",        "type": "Int64",   "description": "HHMM as integer."},
+        {"name": "TRANS_HOUR",        "type": "Int64",   "description": "0..23 derived from TRANS_TIME."},
+        {"name": "WEEK_NO",           "type": "Int64"},
+        {"name": "COUPON_DISC",       "type": "Decimal", "description": "Sign-corrected to positive."},
+        {"name": "COUPON_MATCH_DISC", "type": "Decimal", "description": "Sign-corrected to positive."},
+        {"name": "GROSS_SALES",       "type": "Decimal", "description": "SALES_VALUE + RETAIL_DISC + COUPON_DISC + COUPON_MATCH_DISC."},
+        {"name": "TOTAL_DISC",        "type": "Decimal"}
+      ]
+    },
+    {
+      "name": "fact_causal_weekly",
+      "source": "fact_causal_weekly.parquet",
+      "kind": "fact",
+      "grain": "one row per (PRODUCT_ID, WEEK_NO)",
+      "rowCount": 2049187,
+      "columns": [
+        {"name": "PRODUCT_ID",         "type": "Int64"},
+        {"name": "WEEK_NO",            "type": "Int64"},
+        {"name": "OnDisplay_AnyStore", "type": "Boolean"},
+        {"name": "InMailer_AnyStore",  "type": "Boolean"},
+        {"name": "Stores_OnDisplay",   "type": "Int64"},
+        {"name": "Stores_InMailer",    "type": "Int64"},
+        {"name": "Total_Stores",       "type": "Int64"},
+        {"name": "DisplayShare",       "type": "Decimal"},
+        {"name": "MailerShare",        "type": "Decimal"}
+      ]
+    },
+    {
+      "name": "fact_coupon_redemption",
+      "source": "fact_coupon_redemption.parquet",
+      "kind": "fact",
+      "grain": "one row per redemption event",
+      "rowCount": 2318,
+      "columns": [
+        {"name": "household_key", "type": "Int64"},
+        {"name": "DAY",           "type": "Int64"},
+        {"name": "COUPON_UPC",    "type": "Int64"},
+        {"name": "CAMPAIGN",      "type": "Int64"}
+      ]
+    },
+    {
+      "name": "fact_campaign_received",
+      "source": "fact_campaign_received.parquet",
+      "kind": "factless",
+      "grain": "one row per (household, campaign) sent",
+      "rowCount": 7208,
+      "columns": [
+        {"name": "household_key", "type": "Int64"},
+        {"name": "CAMPAIGN",      "type": "Int64"}
+      ]
+    }
+  ],
+
+  "relationships": [
+    {"from": "fact_transactions",      "fromColumn": "household_key", "to": "dim_household", "toColumn": "household_key", "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_transactions",      "fromColumn": "PRODUCT_ID",    "to": "dim_product",   "toColumn": "PRODUCT_ID",    "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_transactions",      "fromColumn": "STORE_ID",      "to": "dim_store",     "toColumn": "STORE_ID",      "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_transactions",      "fromColumn": "DAY",           "to": "dim_date",      "toColumn": "Day_Idx",       "cardinality": "many-to-one", "crossFilter": "single"},
+
+    {"from": "fact_causal_weekly",     "fromColumn": "PRODUCT_ID",    "to": "dim_product",   "toColumn": "PRODUCT_ID",    "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_causal_weekly",     "fromColumn": "WEEK_NO",       "to": "dim_date",      "toColumn": "Week_No",       "cardinality": "many-to-one", "crossFilter": "single", "$comment": "Joins to a non-unique column on dim_date — set 'Assume referential integrity' off; PBI will treat as many-to-many of week-grain to day-grain. Acceptable here."},
+
+    {"from": "fact_coupon_redemption", "fromColumn": "household_key", "to": "dim_household", "toColumn": "household_key", "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_coupon_redemption", "fromColumn": "COUPON_UPC",    "to": "dim_coupon",    "toColumn": "COUPON_UPC",    "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_coupon_redemption", "fromColumn": "CAMPAIGN",      "to": "dim_campaign",  "toColumn": "CAMPAIGN",      "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_coupon_redemption", "fromColumn": "DAY",           "to": "dim_date",      "toColumn": "Day_Idx",       "cardinality": "many-to-one", "crossFilter": "single"},
+
+    {"from": "fact_campaign_received", "fromColumn": "household_key", "to": "dim_household", "toColumn": "household_key", "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "fact_campaign_received", "fromColumn": "CAMPAIGN",      "to": "dim_campaign",  "toColumn": "CAMPAIGN",      "cardinality": "many-to-one", "crossFilter": "single"},
+
+    {"from": "bridge_coupon_product",  "fromColumn": "COUPON_UPC",    "to": "dim_coupon",    "toColumn": "COUPON_UPC",    "cardinality": "many-to-one", "crossFilter": "single"},
+    {"from": "bridge_coupon_product",  "fromColumn": "PRODUCT_ID",    "to": "dim_product",   "toColumn": "PRODUCT_ID",    "cardinality": "many-to-one", "crossFilter": "single"}
+  ],
+
+  "measures": [
+    {"name": "Total Sales",           "table": "fact_transactions", "expression": "SUM ( fact_transactions[SALES_VALUE] )", "format": "$#,0", "description": "Net of all discounts."},
+    {"name": "Gross Sales",           "table": "fact_transactions", "expression": "SUM ( fact_transactions[GROSS_SALES] )", "format": "$#,0"},
+    {"name": "Total Units",           "table": "fact_transactions", "expression": "SUM ( fact_transactions[QUANTITY] )", "format": "#,0"},
+    {"name": "Total Baskets",         "table": "fact_transactions", "expression": "DISTINCTCOUNT ( fact_transactions[BASKET_ID] )", "format": "#,0"},
+    {"name": "Active Households",     "table": "fact_transactions", "expression": "DISTINCTCOUNT ( fact_transactions[household_key] )", "format": "#,0"},
+    {"name": "Avg Basket Value",      "table": "fact_transactions", "expression": "DIVIDE ( [Total Sales], [Total Baskets] )", "format": "$#,0.00"},
+    {"name": "Spend per Household",   "table": "fact_transactions", "expression": "DIVIDE ( [Total Sales], [Active Households] )", "format": "$#,0"},
+    {"name": "Total Discount",        "table": "fact_transactions", "expression": "SUM ( fact_transactions[TOTAL_DISC] )", "format": "$#,0"},
+    {"name": "Discount Rate",         "table": "fact_transactions", "expression": "DIVIDE ( [Gross Sales] - [Total Sales], [Gross Sales] )", "format": "0.0%"},
+
+    {"name": "Sales Y1",              "table": "fact_transactions", "expression": "CALCULATE ( [Total Sales], dim_date[Year_Idx] = 1 )", "format": "$#,0"},
+    {"name": "Sales Y2",              "table": "fact_transactions", "expression": "CALCULATE ( [Total Sales], dim_date[Year_Idx] = 2 )", "format": "$#,0"},
+    {"name": "YoY Growth %",          "table": "fact_transactions", "expression": "DIVIDE ( [Sales Y2] - [Sales Y1], [Sales Y1] )", "format": "0.0%"},
+
+    {"name": "HH Growing",            "table": "dim_household",     "expression": "CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[HH_Trend] = \"Growing\" )", "format": "#,0"},
+    {"name": "HH Declining",          "table": "dim_household",     "expression": "CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[HH_Trend] = \"Declining\" )", "format": "#,0"},
+    {"name": "HH Flat",               "table": "dim_household",     "expression": "CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[HH_Trend] = \"Flat\" )", "format": "#,0"},
+
+    {"name": "Sales | Exposed HH",    "table": "fact_transactions", "expression": "CALCULATE ( [Total Sales], TREATAS ( VALUES ( fact_campaign_received[household_key] ), dim_household[household_key] ) )", "format": "$#,0"},
+    {"name": "Sales | Unexposed HH",  "table": "fact_transactions", "expression": "CALCULATE ( [Total Sales], EXCEPT ( VALUES ( dim_household[household_key] ), VALUES ( fact_campaign_received[household_key] ) ) )", "format": "$#,0"},
+    {"name": "Marketing Lift %",      "table": "fact_transactions", "expression": "DIVIDE ( DIVIDE ( [Sales | Exposed HH], CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[ReceivedAnyCampaign] = TRUE() ) ) - DIVIDE ( [Sales | Unexposed HH], CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[ReceivedAnyCampaign] = FALSE() ) ), DIVIDE ( [Sales | Unexposed HH], CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[ReceivedAnyCampaign] = FALSE() ) ) )", "format": "0.0%", "description": "Per-household spend uplift for exposed vs unexposed cohort."},
+
+    {"name": "Coupons Redeemed",      "table": "fact_coupon_redemption", "expression": "COUNTROWS ( fact_coupon_redemption )", "format": "#,0"},
+    {"name": "Households Redeeming",  "table": "fact_coupon_redemption", "expression": "DISTINCTCOUNT ( fact_coupon_redemption[household_key] )", "format": "#,0"},
+    {"name": "Redemption Rate",       "table": "fact_coupon_redemption", "expression": "DIVIDE ( [Households Redeeming], CALCULATE ( DISTINCTCOUNT ( dim_household[household_key] ), dim_household[ReceivedAnyCampaign] = TRUE() ) )", "format": "0.0%", "description": "Of households that received a campaign, what share redeemed at least one coupon."},
+
+    {"name": "Weeks On Display",      "table": "fact_causal_weekly", "expression": "CALCULATE ( COUNTROWS ( fact_causal_weekly ), fact_causal_weekly[OnDisplay_AnyStore] = TRUE() )", "format": "#,0"},
+    {"name": "Weeks In Mailer",       "table": "fact_causal_weekly", "expression": "CALCULATE ( COUNTROWS ( fact_causal_weekly ), fact_causal_weekly[InMailer_AnyStore]  = TRUE() )", "format": "#,0"}
+  ]
+}

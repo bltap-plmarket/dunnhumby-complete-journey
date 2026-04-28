@@ -10,6 +10,15 @@ script anytime the raw data refreshes.
 > influence spend, and whether direct marketing actually moves the needle.
 > The model below is shaped for those questions specifically.
 
+## Machine-readable specs (point your skill at these)
+
+| File | Purpose |
+|---|---|
+| `_model.json` | Tables, columns, types, relationships, hierarchies, measures — the canonical model spec for a build skill to consume. |
+| `measures.dax` | All DAX measures as a single ready-to-paste file. |
+| `storyboard.json` | Page-by-page dashboard layout: KPIs, visuals, fields, filters. One page per Kaggle research question. |
+| `theme.json` | Power BI theme JSON (palette, fonts, good/bad colors). |
+
 ## Files in this folder
 
 | File | Role | Rows | Size | Grain |

@@ -1,0 +1,147 @@
+// dunnhumby Complete Journey — DAX measures (copy-paste ready)
+// Pairs with the parquet files in this folder. See _model.json for the
+// canonical machine-readable measure list.
+
+// =============================================================
+//   HEADLINE
+// =============================================================
+
+Total Sales =
+    SUM ( fact_transactions[SALES_VALUE] )
+
+Gross Sales =
+    SUM ( fact_transactions[GROSS_SALES] )
+
+Total Units =
+    SUM ( fact_transactions[QUANTITY] )
+
+Total Baskets =
+    DISTINCTCOUNT ( fact_transactions[BASKET_ID] )
+
+Active Households =
+    DISTINCTCOUNT ( fact_transactions[household_key] )
+
+Avg Basket Value =
+    DIVIDE ( [Total Sales], [Total Baskets] )
+
+Spend per Household =
+    DIVIDE ( [Total Sales], [Active Households] )
+
+Total Discount =
+    SUM ( fact_transactions[TOTAL_DISC] )
+
+Discount Rate =
+    DIVIDE ( [Gross Sales] - [Total Sales], [Gross Sales] )
+
+
+// =============================================================
+//   YEAR-OVER-YEAR
+// =============================================================
+
+Sales Y1 =
+    CALCULATE ( [Total Sales], dim_date[Year_Idx] = 1 )
+
+Sales Y2 =
+    CALCULATE ( [Total Sales], dim_date[Year_Idx] = 2 )
+
+YoY Growth % =
+    DIVIDE ( [Sales Y2] - [Sales Y1], [Sales Y1] )
+
+
+// =============================================================
+//   HOUSEHOLD COHORTS  (HH_Trend pre-computed in dim_household)
+// =============================================================
+
+HH Growing =
+    CALCULATE (
+        DISTINCTCOUNT ( dim_household[household_key] ),
+        dim_household[HH_Trend] = "Growing"
+    )
+
+HH Declining =
+    CALCULATE (
+        DISTINCTCOUNT ( dim_household[household_key] ),
+        dim_household[HH_Trend] = "Declining"
+    )
+
+HH Flat =
+    CALCULATE (
+        DISTINCTCOUNT ( dim_household[household_key] ),
+        dim_household[HH_Trend] = "Flat"
+    )
+
+
+// =============================================================
+//   MARKETING IMPACT
+// =============================================================
+
+Sales | Exposed HH =
+    CALCULATE (
+        [Total Sales],
+        TREATAS (
+            VALUES ( fact_campaign_received[household_key] ),
+            dim_household[household_key]
+        )
+    )
+
+Sales | Unexposed HH =
+    CALCULATE (
+        [Total Sales],
+        EXCEPT (
+            VALUES ( dim_household[household_key] ),
+            VALUES ( fact_campaign_received[household_key] )
+        )
+    )
+
+Marketing Lift % =
+    VAR ExposedHH =
+        CALCULATE (
+            DISTINCTCOUNT ( dim_household[household_key] ),
+            dim_household[ReceivedAnyCampaign] = TRUE ()
+        )
+    VAR UnexposedHH =
+        CALCULATE (
+            DISTINCTCOUNT ( dim_household[household_key] ),
+            dim_household[ReceivedAnyCampaign] = FALSE ()
+        )
+    VAR ExposedAvg   = DIVIDE ( [Sales | Exposed HH],   ExposedHH )
+    VAR UnexposedAvg = DIVIDE ( [Sales | Unexposed HH], UnexposedHH )
+    RETURN
+        DIVIDE ( ExposedAvg - UnexposedAvg, UnexposedAvg )
+
+
+// =============================================================
+//   COUPONS
+// =============================================================
+
+Coupons Redeemed =
+    COUNTROWS ( fact_coupon_redemption )
+
+Households Redeeming =
+    DISTINCTCOUNT ( fact_coupon_redemption[household_key] )
+
+Redemption Rate =
+    DIVIDE (
+        [Households Redeeming],
+        CALCULATE (
+            DISTINCTCOUNT ( dim_household[household_key] ),
+            dim_household[ReceivedAnyCampaign] = TRUE ()
+        )
+    )
+
+
+// =============================================================
+//   PROMOTIONS (causal)
+// =============================================================
+
+Weeks On Display =
+    CALCULATE (
+        COUNTROWS ( fact_causal_weekly ),
+        fact_causal_weekly[OnDisplay_AnyStore] = TRUE ()
+    )
+
+Weeks In Mailer =
+    CALCULATE (
+        COUNTROWS ( fact_causal_weekly ),
+        fact_causal_weekly[InMailer_AnyStore] = TRUE ()
+    )

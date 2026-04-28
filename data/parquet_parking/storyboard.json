@@ -1,0 +1,109 @@
+{
+  "$comment": "Page-by-page dashboard layout spec. Each page maps to one of the five Kaggle research questions. A skill should create these pages, drop the listed visuals, and bind the listed fields/measures.",
+  "title": "dunnhumby — The Complete Journey",
+  "subtitle": "Household spend trends, category dynamics, and marketing effectiveness",
+  "globalSlicers": [
+    {"table": "dim_date", "field": "Year_Idx", "type": "tile", "label": "Year"},
+    {"table": "dim_household", "field": "HH_Trend", "type": "tile", "label": "Household trend"}
+  ],
+  "pages": [
+    {
+      "name": "1. Spend Trends",
+      "purpose": "Q1 — How many customers are spending more / less over time, and who are they?",
+      "headerKpis": [
+        {"measure": "Total Sales",         "label": "Total Sales"},
+        {"measure": "Active Households",   "label": "Households"},
+        {"measure": "YoY Growth %",        "label": "YoY Growth", "conditional": "good if > 0, bad if < 0"},
+        {"measure": "HH Growing",          "label": "Growing HH"},
+        {"measure": "HH Declining",        "label": "Declining HH"}
+      ],
+      "visuals": [
+        {"type": "donut",       "title": "Households by trend", "category": "dim_household.HH_Trend", "values": "DISTINCTCOUNT(dim_household[household_key])"},
+        {"type": "scatter",     "title": "Y1 vs Y2 spend per household", "x": "dim_household.Spend_Y1", "y": "dim_household.Spend_Y2", "color": "dim_household.HH_Trend", "details": "dim_household.household_key", "annotations": ["y=x reference line"]},
+        {"type": "lineChart",   "title": "Weekly sales", "axis": "dim_date.Week_No", "values": "Total Sales", "secondary": "Active Households"},
+        {"type": "table",       "title": "Top households by Y2-Y1 spend Δ", "columns": ["dim_household.household_key", "dim_household.Spend_Y1", "dim_household.Spend_Y2", "dim_household.Spend_Delta", "dim_household.Spend_Delta_Pct", "dim_household.HH_Trend"], "sort": "Spend_Delta desc", "topN": 25}
+      ],
+      "filters": []
+    },
+    {
+      "name": "2. Category Winners & Losers",
+      "purpose": "Q2 + Q3 — Which categories are growing for spending-up customers and shrinking for spending-down customers?",
+      "headerKpis": [
+        {"measure": "Total Sales", "label": "Total Sales"},
+        {"measure": "Sales Y1",    "label": "Y1 Sales"},
+        {"measure": "Sales Y2",    "label": "Y2 Sales"}
+      ],
+      "visuals": [
+        {"type": "matrix",   "title": "Δ% by COMMODITY × HH_Trend cohort", "rows": "dim_product.COMMODITY_DESC", "columns": "dim_household.HH_Trend", "values": "YoY Growth %", "conditionalFormat": "diverging green-red on YoY Growth %"},
+        {"type": "barChart", "title": "Top 20 fastest-growing commodities (Growing cohort)", "axis": "dim_product.COMMODITY_DESC", "values": "YoY Growth %", "filter": "dim_household.HH_Trend = 'Growing'", "topN": 20, "sort": "YoY Growth % desc"},
+        {"type": "barChart", "title": "Top 20 fastest-declining commodities (Declining cohort)", "axis": "dim_product.COMMODITY_DESC", "values": "YoY Growth %", "filter": "dim_household.HH_Trend = 'Declining'", "topN": 20, "sort": "YoY Growth % asc"},
+        {"type": "treemap",  "title": "Y2 Sales by department", "category": "dim_product.DEPARTMENT", "values": "Sales Y2"}
+      ],
+      "filters": [
+        {"table": "dim_product", "field": "Has_Real_Category", "operator": "=", "value": true, "$comment": "Hide placeholder rows."}
+      ]
+    },
+    {
+      "name": "3. Demographic Profile",
+      "purpose": "Q4 — Which demographic factors affect spend and category engagement?",
+      "headerKpis": [
+        {"measure": "Active Households",   "label": "Surveyed Households"},
+        {"measure": "Spend per Household", "label": "Avg HH Spend"},
+        {"measure": "Avg Basket Value",    "label": "Avg Basket Value"}
+      ],
+      "visuals": [
+        {"type": "barChart",  "title": "Avg spend per HH by income bracket",  "axis": "dim_household.INCOME_DESC",         "values": "Spend per Household", "sort": "INCOME_DESC asc (custom order: 'Under 15K','15-24K','25-34K','35-49K','50-74K','75-99K','100-124K','125-149K','150-174K','175-199K','200-249K','250K+')"},
+        {"type": "barChart",  "title": "Avg basket value by household composition", "axis": "dim_household.HH_COMP_DESC", "values": "Avg Basket Value"},
+        {"type": "barChart",  "title": "Spend per HH by age bucket",          "axis": "dim_household.AGE_DESC",            "values": "Spend per Household"},
+        {"type": "matrix",    "title": "% of spend by department × income",   "rows": "dim_household.INCOME_DESC", "columns": "dim_product.DEPARTMENT", "values": "Total Sales as % of row total"},
+        {"type": "decompTree","title": "Decompose total sales", "explain": "Total Sales", "by": ["dim_household.INCOME_DESC", "dim_household.HH_COMP_DESC", "dim_household.AGE_DESC", "dim_product.DEPARTMENT"]}
+      ],
+      "filters": [
+        {"table": "dim_household", "field": "HasDemographics", "operator": "=", "value": true, "$comment": "CRITICAL — without this filter, demographic measures average over households whose demos are unknown."}
+      ]
+    },
+    {
+      "name": "4. Marketing Impact",
+      "purpose": "Q5 — Does direct marketing improve overall engagement?",
+      "headerKpis": [
+        {"measure": "Sales | Exposed HH",   "label": "Sales: Exposed"},
+        {"measure": "Sales | Unexposed HH", "label": "Sales: Unexposed"},
+        {"measure": "Marketing Lift %",     "label": "Lift", "conditional": "good if > 0"},
+        {"measure": "Households Redeeming", "label": "Households Redeeming"},
+        {"measure": "Redemption Rate",      "label": "Redemption Rate"}
+      ],
+      "visuals": [
+        {"type": "barChart", "title": "Spend per HH: exposed vs unexposed", "axis": "dim_household.ReceivedAnyCampaign", "values": "Spend per Household"},
+        {"type": "barChart", "title": "Spend per HH by campaign type",      "axis": "dim_campaign.CAMPAIGN_TYPE",         "values": "Sales | Exposed HH"},
+        {"type": "lineChart","title": "Weekly sales — exposed vs unexposed cohort", "axis": "dim_date.Week_No", "values": ["Sales | Exposed HH", "Sales | Unexposed HH"]},
+        {"type": "funnel",   "title": "Marketing engagement funnel", "stages": [
+          {"label": "All Households",            "measure": "DISTINCTCOUNT(dim_household[household_key])"},
+          {"label": "Received any campaign",     "measure": "CALCULATE(DISTINCTCOUNT(dim_household[household_key]), dim_household[ReceivedAnyCampaign] = TRUE())"},
+          {"label": "Redeemed any coupon",       "measure": "CALCULATE(DISTINCTCOUNT(dim_household[household_key]), dim_household[RedeemedAnyCoupon]   = TRUE())"}
+        ]},
+        {"type": "table",    "title": "Per-campaign metrics", "columns": ["dim_campaign.CAMPAIGN", "dim_campaign.CAMPAIGN_TYPE", "dim_campaign.START_DAY", "dim_campaign.Duration_Days", "Coupons Redeemed", "Sales | Exposed HH"], "sort": "START_DAY asc"}
+      ],
+      "filters": [
+        {"table": "dim_campaign", "field": "Extends_Past_Observation", "operator": "=", "value": false, "$comment": "Drop Campaign 24 from lift analysis since post-window is truncated."}
+      ]
+    },
+    {
+      "name": "5. Promotion Effects",
+      "purpose": "Bonus — Do in-store displays and mailers move sales?",
+      "headerKpis": [
+        {"measure": "Weeks On Display", "label": "Display weeks"},
+        {"measure": "Weeks In Mailer",  "label": "Mailer weeks"},
+        {"measure": "Total Sales",      "label": "Total Sales"}
+      ],
+      "visuals": [
+        {"type": "barChart", "title": "Sales lift on display vs not", "axis": "fact_causal_weekly.OnDisplay_AnyStore", "values": "Total Sales"},
+        {"type": "barChart", "title": "Sales lift in mailer vs not",  "axis": "fact_causal_weekly.InMailer_AnyStore",  "values": "Total Sales"},
+        {"type": "matrix",   "title": "Display effect by department", "rows": "dim_product.DEPARTMENT", "columns": "fact_causal_weekly.OnDisplay_AnyStore", "values": "Total Sales"},
+        {"type": "scatter",  "title": "Display share vs sales (weekly)", "x": "fact_causal_weekly.DisplayShare", "y": "Total Sales", "details": "dim_product.COMMODITY_DESC"}
+      ],
+      "filters": [
+        {"table": "dim_product", "field": "Has_Real_Category", "operator": "=", "value": true}
+      ]
+    }
+  ]
+}
