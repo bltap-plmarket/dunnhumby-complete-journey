@@ -11,7 +11,15 @@ Tracks 2,500 households over two years across transactions, demographics, produc
 
 ## Get the data
 
-The raw CSVs are not committed (see `.gitignore`). To pull them locally:
+The raw CSVs are not committed (see `.gitignore`). Two ways to get them:
+
+**Option 1 — GitHub Release (no Kaggle account needed):**
+
+Download `dunnhumby-complete-journey-data.zip` (~136 MB) from the
+[v1.0-data release](https://github.com/bltap-plmarket/dunnhumby-complete-journey/releases/tag/v1.0-data)
+and unzip into `data/raw/`.
+
+**Option 2 — Kaggle CLI:**
 
 ```bash
 # one-time: place your Kaggle API token at ~/.kaggle/kaggle.json
